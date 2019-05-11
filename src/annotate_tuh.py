@@ -3,12 +3,17 @@ import pyedflib
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
+import pandas as pd
+from eeglibrary import EEG
 from src.const import *
 from src.args import annotate_args
 
 
-def annotate_method_1(signals, label_info, sr, duration, save_folder):
+def annotate_method_1(eeg, label_info, duration, save_folder):
+    signals = np.copy(eeg.values)
     mask = np.ones(signals.shape, dtype=bool)
+    paths = []
+
     # 発作やノイズがある場合
     for info in label_info:
         start, end, label = info
@@ -19,33 +24,42 @@ def annotate_method_1(signals, label_info, sr, duration, save_folder):
                     int((float(end) - 0.00001) / 10) + 1) * 10
         if float(start) == 0.0:
             mask_start = 0
-        mask[:, mask_start * sr:mask_end * sr] = False
+        mask[:, mask_start * eeg.sr:mask_end * eeg.sr] = False
         # 10秒分切り出す。足りなければ保存しない
         for start_sec in np.arange(float(start), float(end), duration):
             if start_sec + duration > float(end):
                 break
-            start_idx, end_idx = int(start_sec * sr), int((start_sec + duration) * sr)
+            start_idx, end_idx = int(start_sec * eeg.sr), int((start_sec + duration) * eeg.sr)
 
             # ファイルに保存
-            filename = '{}_{}_{}.npy'.format(start_idx, end_idx, label)
-            np.save(save_folder / filename, signals[:, start_idx:end_idx])
-        print(start, end, label)
+            filename = '{}_{}_{}.pkl'.format(start_idx, end_idx, label)
+            eeg.values = signals[:, start_idx:end_idx]
+            eeg.to_pkl(save_folder / filename)
+            paths.append(str(save_folder / filename))
+        # print(start, end, label)
 
     null_array = np.array(np.ma.array(signals, mask=mask))
-    assert null_array.shape[1] % sr == 0
+    assert null_array.shape[1] % eeg.sr == 0
 
     # 発作やノイズ以外の区間
-    for start_idx in np.arange(0, null_array.shape[1], duration * sr):
-        end_idx = start_idx + duration * sr
+    for start_idx in np.arange(0, null_array.shape[1], duration * eeg.sr):
+        end_idx = start_idx + duration * eeg.sr
         if end_idx > null_array.shape[1]:
             break
         # ファイルに保存
-        filename = '{}_{}_null.npy'.format(start_idx, end_idx)
-        np.save(save_folder / filename, null_array[:, start_idx:end_idx])
+        filename = '{}_{}_null.pkl'.format(start_idx, end_idx)
+        eeg.values = null_array[:, start_idx:end_idx]
+        eeg.to_pkl(save_folder / filename)
+        paths.append(str(save_folder / filename))
+
+    return paths
 
 
-def annotate_method_2(signals, label_info, sr, duration, save_folder):
+def annotate_method_2(eeg, label_info, duration, save_folder):
     # label_info_list = [info.split() for info in label_info.split('\n')[2:-1]]
+    signals = np.copy(eeg.values)
+    paths = []
+
     for s_sec in np.arange(0, 400, duration):
 
         true_label = 'null'
@@ -62,8 +76,12 @@ def annotate_method_2(signals, label_info, sr, duration, save_folder):
                 true_label = label
         # print(s_sec, s_sec + duration, true_label)
         # ファイルに保存
-        filename = '{}_{}_{}.npy'.format(s_sec * sr, (s_sec + duration) * sr, true_label)
-        np.save(save_folder / filename, signals[s_sec * sr:(s_sec + duration) * sr])
+        filename = '{}_{}_{}.pkl'.format(s_sec * eeg.sr, (s_sec + duration) * eeg.sr, true_label)
+        eeg.values = signals[s_sec * eeg.sr:(s_sec + duration) * eeg.sr]
+        eeg.to_pkl(save_folder / filename)
+        paths.append(str(save_folder / filename))
+
+    return paths
 
 
 def annotate(label_path, args):
@@ -76,28 +94,20 @@ def annotate(label_path, args):
 
     edfreader = pyedflib.EdfReader(str(edf_path))
 
-    sr = edfreader.getSampleFrequencies()[0]
-    n = edfreader.signals_in_file
-
-    signals = np.zeros((n, edfreader.getNSamples()[0]))
-    for i in np.arange(n):
-        try:
-            signals[i, :] = edfreader.readSignal(i)
-        except ValueError as e:
-            np.delete(signals, i, 0)
-    duration = 10
-
     save_folder = str(edf_path).split('/')
-    save_folder[-2] = save_folder[-2] + '_' + save_folder[-1].replace('.edf', '').split('_')[-1]
-    save_folder.pop(-1)
-    save_folder.insert(-3, 'method_{}_labeled'.format(args.annotate_method))
+    save_folder[-3] = '_'.join([save_folder[-3], save_folder[-2], save_folder[-1].replace('.edf', '').split('_')[-1]])
+    save_folder = save_folder[:-2]
+    save_folder.insert(-2, 'method_{}_labeled'.format(args.annotate_method))
     save_folder = Path('/'.join(save_folder))
     save_folder.mkdir(exist_ok=True, parents=True)
 
+    eeg = EEG.from_edf(edfreader)
+    eeg.len_sec = args.duration
+
     if args.annotate_method == 1:
-        annotate_method_1(signals, label_info, sr, duration, save_folder)
+        return annotate_method_1(eeg, label_info, args.duration, save_folder)
     elif args.annotate_method == 2:
-        annotate_method_2(signals, label_info, sr, duration, save_folder)
+        return annotate_method_2(eeg, label_info, args.duration, save_folder)
     else:
         raise NotImplementedError
 
@@ -106,11 +116,22 @@ if __name__ == '__main__':
 
     args = annotate_args().parse_args()
 
-    tuh_id_dirs = [p for p in Path(args.data_dir).iterdir() if p.is_dir()]
-    for tuh_id_dir in tqdm(tuh_id_dirs):
-        patient_dirs = [p for p in tuh_id_dir.iterdir() if p.is_dir()]
-        for patient_dir in patient_dirs:
-            records = [p for p in patient_dir.iterdir() if p.is_dir()]
-            for record in records:
-                for label_path in record.glob('*.tse_bi'):
-                    annotate(label_path, args)
+    for train_test_dir in [p for p in Path(args.data_dir).iterdir() if p.name in ['train', 'dev_test']]:
+        paths = []
+        for data_config_dir in [p for p in train_test_dir.iterdir() if p.is_dir()]:
+            for tuh_id_dir in tqdm([p for p in data_config_dir.iterdir() if p.is_dir()]):
+                for patient_dir in [p for p in tuh_id_dir.iterdir() if p.is_dir()]:
+                    for record in [p for p in patient_dir.iterdir() if p.is_dir()]:
+                        for label_path in record.glob('*.tse_bi'):
+                            paths.extend(annotate(label_path, args))
+                            break
+                        break
+        # Manifestを作成
+        pd.DataFrame(paths).to_csv(Path(args.data_dir) / '{}_manifest.csv'.format(train_test_dir.name),
+                                   index=False, header=None)
+    train_mani = pd.read_csv(Path(args.data_dir) / 'train_manifest.csv', header=None)
+    train_mani.iloc[:int(train_mani.shape[0] * 0.8), :].to_csv(Path(args.data_dir) / 'train_manifest.csv',
+                                                               index=False, header=None)
+    train_mani.iloc[int(train_mani.shape[0] * 0.8):, :].to_csv(Path(args.data_dir) / 'val_manifest.csv',
+                                                               index=False, header=None)
+

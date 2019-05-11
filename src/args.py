@@ -6,7 +6,7 @@ def annotate_args():
     parser.add_argument('--data-dir', metavar='DIR',
                         help='Directory where data placed', default='input/data')
     parser.add_argument('--duration', type=float,
-                        help='duration of one splitted wave', default=10.0)
+                        help='duration of one splitted wave', default=10)
     parser.add_argument('--annotate-method', type=int,
                         help='The way to annotate, 1 or 2', default=1)
 

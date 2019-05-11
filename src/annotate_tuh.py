@@ -77,11 +77,8 @@ def annotate(label_path, args):
     edfreader = pyedflib.EdfReader(str(edf_path))
 
     sr = edfreader.getSampleFrequencies()[0]
-
-    pat_id = edfreader.patient.decode().split()[0]
-
     n = edfreader.signals_in_file
-    signal_labels = edfreader.getSignalLabels()
+
     signals = np.zeros((n, edfreader.getNSamples()[0]))
     for i in np.arange(n):
         try:
@@ -93,7 +90,7 @@ def annotate(label_path, args):
     save_folder = str(edf_path).split('/')
     save_folder[-2] = save_folder[-2] + '_' + save_folder[-1].replace('.edf', '').split('_')[-1]
     save_folder.pop(-1)
-    save_folder.insert(-3, 'labeled')
+    save_folder.insert(-3, 'method_{}_labeled'.format(args.annotate_method))
     save_folder = Path('/'.join(save_folder))
     save_folder.mkdir(exist_ok=True, parents=True)
 

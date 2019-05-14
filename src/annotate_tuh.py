@@ -49,6 +49,8 @@ def annotate_method_1(eeg, label_info, duration, save_folder):
         # ファイルに保存
         filename = '{}_{}_null.pkl'.format(start_idx, end_idx)
         eeg.values = null_array[:, start_idx:end_idx]
+        if eeg.values.size < 32 * eeg.sr * duration:
+            continue
         eeg.to_pkl(save_folder / filename)
         paths.append(str(save_folder / filename))
 
@@ -61,7 +63,6 @@ def annotate_method_2(eeg, label_info, duration, save_folder):
     paths = []
 
     for s_sec in np.arange(0, 400, duration):
-
         true_label = 'null'
         for info in label_info:
             start, end, label = info
@@ -77,7 +78,9 @@ def annotate_method_2(eeg, label_info, duration, save_folder):
         # print(s_sec, s_sec + duration, true_label)
         # ファイルに保存
         filename = '{}_{}_{}.pkl'.format(s_sec * eeg.sr, (s_sec + duration) * eeg.sr, true_label)
-        eeg.values = signals[s_sec * eeg.sr:(s_sec + duration) * eeg.sr]
+        eeg.values = np.copy(signals[:, s_sec * eeg.sr:(s_sec + duration) * eeg.sr])
+        if eeg.values.size < 32 * eeg.sr * duration:
+            continue
         eeg.to_pkl(save_folder / filename)
         paths.append(str(save_folder / filename))
 
@@ -103,6 +106,18 @@ def annotate(label_path, args):
 
     eeg = EEG.from_edf(edfreader)
     eeg.len_sec = args.duration
+    # 値が入っていないチャンネルが存在するため、削除
+    if ~np.all(~np.all(eeg.values == 0, axis=1)):
+        mask_index = np.where(np.all(eeg.values == 0, axis=1))
+        [eeg.channel_list.pop(i) for i in np.flip(mask_index)[0]]
+        eeg.values = eeg.values[~np.all(eeg.values == 0, axis=1)]
+
+    # すべて0のチャンネルが存在する場合、データとして使用しない
+    if ~np.any(~np.all(eeg.values == 0, axis=1)):
+        return []
+
+    eeg.values = eeg.values[:32, :]
+    eeg.channel_list = eeg.channel_list[:32]
 
     if args.annotate_method == 1:
         return annotate_method_1(eeg, label_info, args.duration, save_folder)
@@ -116,6 +131,8 @@ if __name__ == '__main__':
 
     args = annotate_args().parse_args()
 
+    n_tqdm = sum([len(list(p.iterdir())) for p in Path(args.data_dir).iterdir() if p.name in ['train', 'dev_test']])
+    print('There are {} folders to count by tdqm'.format(n_tqdm))
     for train_test_dir in [p for p in Path(args.data_dir).iterdir() if p.name in ['train', 'dev_test']]:
         paths = []
         for data_config_dir in [p for p in train_test_dir.iterdir() if p.is_dir()]:

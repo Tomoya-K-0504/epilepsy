@@ -141,8 +141,8 @@ if __name__ == '__main__':
                     for record in [p for p in patient_dir.iterdir() if p.is_dir()]:
                         for label_path in record.glob('*.tse_bi'):
                             paths.extend(annotate(label_path, args))
-                            break
-                        break
+                        #     break
+                        # break
         # Manifestを作成
         pd.DataFrame(paths).to_csv(Path(args.data_dir) / '{}_manifest.csv'.format(train_test_dir.name),
                                    index=False, header=None)

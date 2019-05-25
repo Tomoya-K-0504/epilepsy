@@ -9,7 +9,7 @@ def annotate_args():
                         help='duration of one splitted wave', default=10)
     parser.add_argument('--annotate-method', type=int,
                         help='The way to annotate, 1 or 2', default=1)
-
+    parser.add_argument('--source-target', action='store_true', help='Annotate source and target or not')
     return parser
 
 

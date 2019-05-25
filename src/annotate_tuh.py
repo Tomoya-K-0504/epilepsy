@@ -127,9 +127,35 @@ def annotate(label_path, args):
         raise NotImplementedError
 
 
+def annotate_source_target(args):
+    manifests = list(Path(args.data_dir).glob('*.csv'))
+    for manifest in manifests:
+        phase = manifest.name.replace('_manifest.csv', '')
+        with open(manifest, 'r') as f:
+            paths = f.readlines()
+        pwise_paths = {}
+        for path in paths:
+            patient_id = path.split('/')[-2].split('_')[0]
+            if not patient_id in pwise_paths.keys():
+                pwise_paths[patient_id] = []
+            pwise_paths[patient_id].append(path)
+        
+        source_patients = list(pwise_paths.keys())[:len(pwise_paths) * 8 // 10]
+        target_patients = list(pwise_paths.keys())[len(pwise_paths) * 8 // 10:]
+        for s_or_t, patients in zip(['source', 'target'], [source_patients, target_patients]):
+            save_paths = []
+            [save_paths.extend(pwise_paths[key]) for key in patients]
+            with open(f'{args.data_dir}/{phase}_{s_or_t}.csv', 'w') as f:
+                f.write(''.join(save_paths))
+
+
 if __name__ == '__main__':
 
     args = annotate_args().parse_args()
+
+    if args.source_target:
+        annotate_source_target(args)
+        exit()
 
     n_tqdm = sum([len(list(p.iterdir())) for p in Path(args.data_dir).iterdir() if p.name in ['train', 'dev_test']])
     print('There are {} folders to count by tdqm'.format(n_tqdm))
@@ -141,8 +167,7 @@ if __name__ == '__main__':
                     for record in [p for p in patient_dir.iterdir() if p.is_dir()]:
                         for label_path in record.glob('*.tse_bi'):
                             paths.extend(annotate(label_path, args))
-                        #     break
-                        # break
+
         # Manifestを作成
         pd.DataFrame(paths).to_csv(Path(args.data_dir) / '{}_manifest.csv'.format(train_test_dir.name),
                                    index=False, header=None)

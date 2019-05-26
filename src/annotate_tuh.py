@@ -129,6 +129,7 @@ def annotate(label_path, args):
 
 def annotate_source_target(args):
     manifests = list(Path(args.data_dir).glob('*.csv'))
+    assert len(manifests) == 3
     for manifest in manifests:
         phase = manifest.name.replace('_manifest.csv', '')
         with open(manifest, 'r') as f:

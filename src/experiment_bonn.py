@@ -13,7 +13,7 @@ from pathlib import Path
 from src.const import BONN_LABELS
 
 
-LABELS = list(set(BONN_LABELS.values()))
+LABELS = ['none', 'interictal', 'ictal']
 
 
 def train_args(parser):

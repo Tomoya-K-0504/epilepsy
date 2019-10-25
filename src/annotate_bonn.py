@@ -46,15 +46,14 @@ if __name__ == '__main__':
 
     # Manifestを作成. 各ラベルの8割をtrain、それ以外をvalにする
     train_list = []
-    [train_list.extend(train_val_test[label][:int(len(train_val_test[label]) * 0.8)]) for label in train_val_test.keys()]
+    [train_list.extend(train_val_test[label][:int(len(train_val_test[label]) * 0.6)]) for label in train_val_test.keys()]
     pd.DataFrame(train_list).to_csv(Path(args.data_dir) / 'train_manifest.csv', index=False, header=None)
+
+    val_list = []
+    [val_list.extend(train_val_test[label][int(len(train_val_test[label]) * 0.6):int(len(train_val_test[label]) * 0.8)])
+     for label in train_val_test.keys()]
+    pd.DataFrame(val_list).to_csv(Path(args.data_dir) / 'val_manifest.csv', index=False, header=None)
 
     test_list = []
     [test_list.extend(train_val_test[label][int(len(train_val_test[label]) * 0.8):]) for label in train_val_test.keys()]
     pd.DataFrame(test_list).to_csv(Path(args.data_dir) / 'test_manifest.csv', index=False, header=None)
-
-    train_mani = pd.read_csv(Path(args.data_dir) / 'train_manifest.csv', header=None)
-    train_mani.iloc[:int(train_mani.shape[0] * 0.8), :].to_csv(Path(args.data_dir) / 'train_manifest.csv',
-                                                               index=False, header=None)
-    train_mani.iloc[int(train_mani.shape[0] * 0.8):, :].to_csv(Path(args.data_dir) / 'val_manifest.csv',
-                                                               index=False, header=None)

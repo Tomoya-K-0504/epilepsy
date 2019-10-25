@@ -15,8 +15,7 @@ def annotate_args():
                         help='Directory where data placed', default='/media/tomoya/SSD-PGU3/research/brain/Bonn_dataset')
     parser.add_argument('--duration', type=float,
                         help='duration of one splitted wave', default=10)
-    # parser.add_argument('--annotate-method', type=int,
-    #                     help='The way to annotate, 1 or 2', default=1)
+    parser.add_argument('--n-split', type=int, default=256)
 
     return parser
 
@@ -25,7 +24,6 @@ if __name__ == '__main__':
 
     args = annotate_args().parse_args()
     train_val_test = {label: [] for label in BONN_LABELS.values()}
-    n_split = 16
 
     # txtファイルをそれぞれpklにする。
     for set_ in BONN_LABELS.keys():
@@ -35,11 +33,9 @@ if __name__ == '__main__':
         for txt_file in (Path(args.data_dir) / set_).iterdir():
             with open(txt_file, 'r') as f:
                 values = np.array(list(map(float, f.read().split('\n')[:-1])))
-            for i in range(n_split):
-                if not values.shape[0] == 4097:
-                    print(values.shape[0])
-                    exit()
-                duration = values.shape[0] // n_split
+            for i in range(args.n_split):
+                assert values.shape[0] == 4097
+                duration = values.shape[0] // args.n_split
                 eeg = EEG(values[i * duration:(i + 1) * duration].reshape((1, -1)), channel_list=['0'], len_sec=duration/173.6, sr=173.6)
                 eeg.to_pkl(f'{save_path}/{txt_file.name[:-4]}_{i * duration}.pkl')
                 train_val_test[BONN_LABELS[set_]].append(f'{save_path}/{txt_file.name[:-4]}_{i * duration}.pkl')

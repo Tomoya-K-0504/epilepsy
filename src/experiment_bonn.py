@@ -49,6 +49,9 @@ def experiment(train_conf) -> float:
 
     train_manager.train()
 
+    if train_conf['test']:
+        train_manager.test()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='train arguments')

@@ -30,7 +30,7 @@ def label_func(path):
 
 
 def load_func(path):
-    return torch.from_numpy(eeg.load_pkl(path).values.reshape(-1, ))
+    pass
 
 
 def voting(n_split, pred_list, label_list):
@@ -42,6 +42,7 @@ def voting(n_split, pred_list, label_list):
         voted_label_list[i] = np.argmax(np.bincount(label_list[i * n_split:(i + 1) * n_split]))
 
     print(confusion_matrix(voted_label_list, voted_pred_list))
+
 
 def experiment(train_conf) -> float:
 

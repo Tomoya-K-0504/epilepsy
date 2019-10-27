@@ -34,8 +34,9 @@ if __name__ == '__main__':
         for txt_file in (Path(args.data_dir) / set_).iterdir():
             with open(txt_file, 'r') as f:
                 values = np.array(list(map(float, f.read().split('\n')[:-1])))
+                values = values[:-1]
             for i in range(args.n_split):
-                assert values.shape[0] == 4097
+                assert values.shape[0] == 4096
                 duration = values.shape[0] // args.n_split
                 eeg = EEG(values[i * duration:(i + 1) * duration].reshape((1, -1)), channel_list=['0'], len_sec=duration/173.6, sr=173.6)
                 eeg.to_pkl(f'{save_path}/{txt_file.name[:-4]}_{i * duration}.pkl')
@@ -46,7 +47,7 @@ if __name__ == '__main__':
         [np.random.shuffle(path_list) for path_list in train_val_test.values()]
 
     train_list = []
-    [train_list.extend(train_val_test[label][:int(len(train_val_test[label]) * 0.5)]) for label in train_val_test.keys()]
+    [train_list.extend(train_val_test[label][:int(len(train_val_test[label]) * 0.8)]) for label in train_val_test.keys()]
     pd.DataFrame(train_list).to_csv(Path(args.data_dir) / 'train_manifest.csv', index=False, header=None)
 
     # val_list = []
@@ -55,5 +56,5 @@ if __name__ == '__main__':
     # pd.DataFrame(val_list).to_csv(Path(args.data_dir) / 'val_manifest.csv', index=False, header=None)
 
     test_list = []
-    [test_list.extend(train_val_test[label][int(len(train_val_test[label]) * 0.5):]) for label in train_val_test.keys()]
+    [test_list.extend(train_val_test[label][int(len(train_val_test[label]) * 0.2):]) for label in train_val_test.keys()]
     pd.DataFrame(test_list).to_csv(Path(args.data_dir) / 'test_manifest.csv', index=False, header=None)

@@ -15,7 +15,8 @@ def annotate_args():
                         help='Directory where data placed', default='/media/tomoya/SSD-PGU3/research/brain/Bonn_dataset')
     parser.add_argument('--duration', type=float,
                         help='duration of one splitted wave', default=10)
-    parser.add_argument('--n-split', type=int, default=256)
+    parser.add_argument('--n-split', type=int, default=64)
+    parser.add_argument('--shuffle', dest='shuffle', action='store_true', help='Shuffle eegs or not')
 
     return parser
 
@@ -41,15 +42,18 @@ if __name__ == '__main__':
                 train_val_test[BONN_LABELS[set_]].append(f'{save_path}/{txt_file.name[:-4]}_{i * duration}.pkl')
 
     # Manifestを作成. 各ラベルの8割をtrain、それ以外をvalにする
+    if args.shuffle:
+        [np.random.shuffle(path_list) for path_list in train_val_test.values()]
+
     train_list = []
-    [train_list.extend(train_val_test[label][:int(len(train_val_test[label]) * 0.6)]) for label in train_val_test.keys()]
+    [train_list.extend(train_val_test[label][:int(len(train_val_test[label]) * 0.5)]) for label in train_val_test.keys()]
     pd.DataFrame(train_list).to_csv(Path(args.data_dir) / 'train_manifest.csv', index=False, header=None)
 
-    val_list = []
-    [val_list.extend(train_val_test[label][int(len(train_val_test[label]) * 0.6):int(len(train_val_test[label]) * 0.8)])
-     for label in train_val_test.keys()]
-    pd.DataFrame(val_list).to_csv(Path(args.data_dir) / 'val_manifest.csv', index=False, header=None)
+    # val_list = []
+    # [val_list.extend(train_val_test[label][int(len(train_val_test[label]) * 0.6):int(len(train_val_test[label]) * 0.8)])
+    #  for label in train_val_test.keys()]
+    # pd.DataFrame(val_list).to_csv(Path(args.data_dir) / 'val_manifest.csv', index=False, header=None)
 
     test_list = []
-    [test_list.extend(train_val_test[label][int(len(train_val_test[label]) * 0.8):]) for label in train_val_test.keys()]
+    [test_list.extend(train_val_test[label][int(len(train_val_test[label]) * 0.5):]) for label in train_val_test.keys()]
     pd.DataFrame(test_list).to_csv(Path(args.data_dir) / 'test_manifest.csv', index=False, header=None)
